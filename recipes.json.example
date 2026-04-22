@@ -1,13 +1,13 @@
 {
     "recipes": [
         {
-            "category": "二食堂",
             "name": "自选菜",
+            "category": "二食堂",
             "posibility": 1
         },
         {
-            "category": "外卖",
             "name": "烤鸭饭",
+            "category": "外卖",
             "posibility": 1
         }
     ]
