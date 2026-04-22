@@ -2,135 +2,112 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <limits>
 #include <random>
 #include <string>
 #include <vector>
 #include <json.hpp>
 using json = nlohmann::json;
 
-struct Recipe {
+struct Rec {
     std::string name;
-    std::string category;
-    double posibility;
+    std::string cat;
+    double p;
 };
 
-std::vector<Recipe> loadRecipes() {
-    std::vector<Recipe> recipes;
-    std::ifstream recipeFile("recipes.json");
-    
-    if (!recipeFile.is_open()) {
+std::vector<Rec> loadRecipes() {
+    std::ifstream f("recipes.json");
+    if (!f.is_open()) {
         std::cerr << "无法打开 recipes.json" << std::endl;
-        return recipes;
+        return {};
     }
 
     json j;
     try {
-        recipeFile >> j;
+        f >> j;
     } catch (const std::exception& e) {
         std::cerr << "JSON 格式错误: " << e.what() << std::endl;
-        return recipes;
+        return {};
     }
 
     if (!j.contains("recipes") || !j["recipes"].is_array()) {
         std::cerr << "JSON 格式错误: 缺少 \"recipes\" 数组" << std::endl;
-        return recipes;
+        return {};
     }
 
-    for (const auto& r : j["recipes"]) {
-        Recipe recipe;
-        recipe.name = r.value("name", "");
-        recipe.category = r.value("category", "");
-        recipe.posibility = r.value("posibility", 1.0);
-
-        if (recipe.posibility < 0.0) recipe.posibility = 0.0;
-
-        recipes.push_back(recipe);
+    std::vector<Rec> rs;
+    for (const auto& x : j["recipes"]) {
+        Rec r;
+        r.name = x.value("name", "");
+        r.cat = x.value("category", "");
+        r.p = x.value("posibility", 1.0);
+        if (r.p < 0.0) r.p = 0.0;
+        rs.push_back(r);
     }
-
-    return recipes;
+    return rs;
 }
 
-bool saveRecipes(const std::vector<Recipe>& recipes) {
+bool saveRecipes(const std::vector<Rec>& rs) {
     json j;
     j["recipes"] = json::array();
 
-    for (const auto& recipe : recipes) {
+    for (const auto& r : rs) {
         j["recipes"].push_back({
-            {"name", recipe.name},
-            {"category", recipe.category},
-            {"posibility", recipe.posibility}
+            {"name", r.name},
+            {"category", r.cat},
+            {"posibility", r.p}
         });
     }
 
-    std::ofstream recipeFile("recipes.json");
-    if (!recipeFile.is_open()) {
+    std::ofstream f("recipes.json");
+    if (!f.is_open()) {
         std::cerr << "写入 recipes.json 错误" << std::endl;
         return false;
     }
 
-    recipeFile << j.dump(4) << '\n';
-    if (!recipeFile) {
+    f << j.dump(4) << '\n';
+    if (!f) {
         std::cerr << "保存 recipes.json 错误" << std::endl;
         return false;
     }
-
     return true;
 }
 
-std::size_t pickWeightedRecipeIndex(const std::vector<Recipe>& recipes, std::mt19937& rng) {
-    if (recipes.empty()) {
-        return std::numeric_limits<std::size_t>::max();
+std::size_t pickRecipeIndex(const std::vector<Rec>& rs, std::mt19937& rng) {
+    std::vector<double> ws;
+    ws.reserve(rs.size());
+    double sum = 0.0;
+    for (const auto& r : rs) {
+        const double w = r.p > 0.0 ? r.p : 0.0;
+        ws.push_back(w);
+        sum += w;
     }
 
-    double totalWeight = 0.0;
-    for (const auto& recipe : recipes) {
-        if (recipe.posibility > 0.0) {
-            totalWeight += recipe.posibility;
-        }
+    if (sum <= 0.0) {
+        std::uniform_int_distribution<std::size_t> d(0, rs.size() - 1);
+        return d(rng);
     }
 
-    if (totalWeight <= 0.0) {
-        std::uniform_int_distribution<std::size_t> distribution(0, recipes.size() - 1);
-        return distribution(rng);
-    }
-
-    std::uniform_real_distribution<double> distribution(0.0, totalWeight);
-    const double target = distribution(rng);
-
-    double cumulativeWeight = 0.0;
-    for (std::size_t i = 0; i < recipes.size(); ++i) {
-        if (recipes[i].posibility > 0.0) cumulativeWeight += recipes[i].posibility;
-
-        if (target < cumulativeWeight) return i;
-    }
-
-    return recipes.size() - 1;
+    std::discrete_distribution<std::size_t> d(ws.begin(), ws.end());
+    return d(rng);
 }
 
 int main() {
     std::mt19937 rng(std::random_device{}());
 
-    auto recipes = loadRecipes();
-    if (recipes.empty()) {
+    auto rs = loadRecipes();
+    if (rs.empty()) {
         std::cerr << "没有加载到任何食谱" << std::endl;
         return EXIT_FAILURE;
     }
 
-    const std::size_t selectedIndex = pickWeightedRecipeIndex(recipes, rng);
-    if (selectedIndex == std::numeric_limits<std::size_t>::max()) {
-        std::cerr << "没有可用的食谱权重" << std::endl;
-        return EXIT_FAILURE;
-    }
+    const std::size_t i = pickRecipeIndex(rs, rng);
 
-    std::cout << "随机选中的食谱是: " << recipes[selectedIndex].name << std::endl;
-    std::cout << "类型是: " << recipes[selectedIndex].category << std::endl << std::endl;
+    std::cout << "随机选中的食谱是: " << rs[i].name << std::endl;
+    std::cout << "类型是: " << rs[i].cat << std::endl << std::endl;
 
-    recipes[selectedIndex].posibility /= 2.0;
+    rs[i].p /= 2.0;
 
-    if (!saveRecipes(recipes)) {
-        return EXIT_FAILURE;
-    }
+    if (!saveRecipes(rs)) return EXIT_FAILURE;
 
     std::cout << "已将该食谱的概率减半" << std::endl;
 
