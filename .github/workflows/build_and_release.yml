@@ -7,13 +7,9 @@ on:
 
 jobs:
   build_and_release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
-
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - name: Checkout
@@ -21,27 +17,28 @@ jobs:
         with:
           lfs: true
 
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential zip
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
 
       - name: Build
+        shell: msys2 {0}
         run: |
-          g++ -std=c++17 main.cpp -Iinclude -o weekly-random-recipe.exe
+          g++ -std=c++17 -static -static-libgcc -static-libstdc++ main.cpp -Iinclude -o weekly-random-recipe.exe
 
       - name: Package Release
+        shell: pwsh
         run: |
-          mkdir -p release
-          cp weekly-random-recipe.exe release/
-          cp recipes.json.example release/
-          cp README.md release/
-          cp LICENSE release/
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item weekly-random-recipe.exe, README.md, LICENSE, recipes.json.example -Destination release
 
       - name: Create Zip
+        shell: pwsh
         run: |
-          cd release
-          zip -r ../weekly-random-recipe-${{ github.ref_name }}.zip .
+          Compress-Archive -Path release\* -DestinationPath weekly-random-recipe-${{ github.ref_name }}.zip -Force
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
