@@ -10,7 +10,7 @@
 git clone https://github.com/sglwsjxh/Weekly-Random-Recipe.git
 cd Weekly-Random-Recipe
 
-g++ -std=c++17 main.cpp -Iinclude -o weekly-random-recipe.exe
+g++ -std=c++17 -static -static-libgcc -static-libstdc++ main.cpp -Iinclude -o weekly-random-recipe.exe
 ```
 
 **2. 将菜谱信息复制到 `recipes.json` 文件中**
