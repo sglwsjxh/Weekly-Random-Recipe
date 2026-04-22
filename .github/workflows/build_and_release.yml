@@ -50,8 +50,10 @@ jobs:
 
       - name: Copy all files to dist
         run: |
-          cp -r include dist/
-          cp LICENSE README.md recipes.json.example dist/
+          cp weekly-random-recipe.exe dist/
+          cp LICENSE dist/
+          cp README.md dist/
+          cp recipes.json.example dist/
 
       - name: Create ZIP Package
         run: |
